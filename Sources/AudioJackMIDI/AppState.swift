@@ -36,6 +36,22 @@ final class Transport {
         playback.discard(); midiParser.reset(); testParser.reset()
         if let renderer = engine.renderer { aj_panic(renderer) }
     }
+    /// Poll asynchronously so large intervals do not block the UI or truncate Panic.
+    func finishPanicAndStop(completion: @escaping () -> Void) {
+        guard let renderer = engine.renderer else { completion(); return }
+        if aj_panic_pending(renderer),
+           abs(AudioOutputEngine.nominalRate(engine.device) - Double(engine.sampleRate)) < 1 {
+            queue.asyncAfter(deadline: .now() + 0.05) { [self] in
+                finishPanicAndStop(completion: completion)
+            }
+        } else {
+            // Let the final rendered audio reach the device before releasing it.
+            queue.asyncAfter(deadline: .now() + 0.1) { [self] in
+                engine.stop()
+                completion()
+            }
+        }
+    }
     func restartTest(_ events: [TestEvent], repeatDiagnostic: Bool, channel: UInt8) {
         guard accepting else { return }
         // Do not call aj_panic here: it drops accepted bytes, including Note Offs.
@@ -68,6 +84,7 @@ final class AppState: ObservableObject {
     @Published var reversed = true { didSet { configure() } }
     @Published var velocityZero = false { didSet { configure() } }
     @Published var idleBits = 0 { didSet { configure() } }
+    @Published var messageIntervalMS = 5.0 { didSet { configure() } }
     @Published var channel = 1
     @Published var running = false
     @Published var busy = false
@@ -104,19 +121,22 @@ final class AppState: ObservableObject {
         if log.count > 200 { log.removeFirst(log.count - 200) }
     }
     private func configure() {
-        let a = Float(amplitude), r = reversed, bits = idleBits, off = velocityZero
+        let a = Float(amplitude), r = reversed, bits = idleBits, off = velocityZero, interval = messageIntervalMS
         transport.queue.async { [transport] in
             transport.midiParser.velocityZeroNoteOff = off; transport.testParser.velocityZeroNoteOff = off
-            if let renderer = transport.engine.renderer { aj_configure(renderer, a, r, UInt32(bits)) }
+            if let renderer = transport.engine.renderer {
+                aj_configure(renderer, a, r, UInt32(bits))
+                aj_set_message_interval(renderer, interval)
+            }
         }
     }
     func start() {
         guard !busy, !running, portReady else { return }
         busy = true; status = "Starting output…"
-        let device = selectedDevice, rate = sampleRate, amp = Float(amplitude), reverse = reversed, bits = idleBits
+        let device = selectedDevice, rate = sampleRate, amp = Float(amplitude), reverse = reversed, bits = idleBits, interval = messageIntervalMS
         transport.queue.async { [weak self, transport] in
             do {
-                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: bits)
+                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: bits, messageIntervalMS: interval)
                 transport.midiParser.reset(); transport.testParser.reset(); transport.playback.discard(); transport.accepting = true
                 DispatchQueue.main.async { [weak self] in
                     self?.running = true; self?.busy = false
@@ -134,8 +154,7 @@ final class AppState: ObservableObject {
         busy = true; repeating = false; status = "Sending Panic, then stopping…"
         transport.queue.async { [weak self, transport] in
             transport.accepting = false; transport.panic()
-            transport.queue.asyncAfter(deadline: .now() + 0.3) { [weak self, transport] in
-                transport.engine.stop()
+            transport.finishPanicAndStop { [weak self] in
                 DispatchQueue.main.async { [weak self] in
                     self?.running = false; self?.busy = false; self?.status = "Output stopped"
                     self?.append("Panic sent; output stopped.")
@@ -193,12 +212,14 @@ final class AppState: ObservableObject {
             }
         }
     }
-    func shutdown() {
+    func shutdown(completion: @escaping () -> Void) {
         timer?.invalidate(); port = nil
-        transport.queue.sync {
+        busy = true; status = "Sending Panic before quitting…"
+        transport.queue.async { [transport] in
             transport.accepting = false; transport.panic()
-            if transport.engine.renderer != nil { Thread.sleep(forTimeInterval: 0.3) }
-            transport.engine.stop()
+            transport.finishPanicAndStop {
+                DispatchQueue.main.async(execute: completion)
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <mach/mach_time.h>
 #define CAPACITY 65536u
 #define BAUD 31250u
@@ -12,6 +13,10 @@ struct AJRenderer {
     _Atomic uint32_t amplitudeBits, reversed, idleBits;
     uint32_t rate, fraction, remaining, bit, gap;
     bool active;
+    _Atomic uint32_t intervalSamples;
+    uint64_t messageAge;
+    bool betweenMessages, hasMessageStart;
+    _Atomic bool panicBusy;
     AJByte current;
     _Atomic uint64_t panicThrough;
     uint32_t panicPosition;
@@ -24,10 +29,12 @@ AJRenderer *aj_create(uint32_t rate, double ticksPerSecond) {
     if (!r) return NULL;
     r->rate = rate; r->ticksPerSample = ticksPerSecond / rate;
     r->fraction = BAUD / 2;
+    r->betweenMessages = true;
     aj_configure(r, .90f, true, 0);
     return r;
 }
 void aj_panic(AJRenderer *r) {
+    atomic_store(&r->panicBusy, true);
     atomic_store(&r->panicThrough, (uint64_t)atomic_load(&r->writeIndex) + 1);
 }
 void aj_destroy(AJRenderer *r) { free(r); }
@@ -46,6 +53,22 @@ void aj_configure(AJRenderer *r, float amplitude, bool reversed, uint32_t idleBi
     atomic_store(&r->amplitudeBits, bits);
     atomic_store(&r->reversed, reversed);
     atomic_store(&r->idleBits, idleBits > 4 ? 4 : idleBits);
+}
+void aj_set_message_interval(AJRenderer *r, double milliseconds) {
+    if (!isfinite(milliseconds)) milliseconds = 5;
+    if (milliseconds < 0) milliseconds = 0;
+    if (milliseconds > 60000) milliseconds = 60000;
+    atomic_store(&r->intervalSamples, (uint32_t)ceil(milliseconds * r->rate / 1000.0));
+}
+bool aj_panic_pending(AJRenderer *r) {
+    return atomic_load(&r->panicThrough) != 0 || atomic_load(&r->panicBusy);
+}
+static void begin_message_if_needed(AJRenderer *r) {
+    if (r->betweenMessages) {
+        r->messageAge = 0;
+        r->hasMessageStart = true;
+        r->betweenMessages = false;
+    }
 }
 static uint32_t bit_samples(AJRenderer *r) {
     r->fraction += r->rate;
@@ -75,6 +98,11 @@ void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64
                 r->active = false;
                 atomic_fetch_add_explicit(&r->transmitted, 1, memory_order_relaxed);
                 r->gap = r->current.messageEnd ? atomic_load(&r->idleBits) : 0;
+                if (r->current.messageEnd) r->betweenMessages = true;
+                if (r->panicPosition == 144 && !r->panicking) {
+                    atomic_store(&r->panicBusy, false);
+                    r->panicPosition = 0;
+                }
             } else r->remaining = uart_bit_samples(r);
         }
         if (!r->active && r->remaining == 0 && r->gap) {
@@ -88,19 +116,28 @@ void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64
                 if (target - currentRead <= CAPACITY)
                     atomic_store_explicit(&r->readIndex, target, memory_order_release);
                 r->panicking = true; r->panicPosition = 0;
+                atomic_store(&r->panicBusy, true);
+                // Panic can replace an unfinished message after the current byte.
+                r->betweenMessages = true;
             }
             uint32_t rd = atomic_load_explicit(&r->readIndex, memory_order_relaxed);
             uint32_t w = atomic_load_explicit(&r->writeIndex, memory_order_acquire);
             uint64_t now = hostTime + (uint64_t)(i * r->ticksPerSample);
-            if (r->panicking) {
+            bool ready = !r->betweenMessages || !r->hasMessageStart ||
+                r->messageAge >= atomic_load(&r->intervalSamples);
+            if (!ready) {
+                r->fraction = BAUD / 2;
+            } else if (r->panicking) {
                 uint32_t p = r->panicPosition++, channel = p / 9, part = p % 9;
                 uint8_t sequence[9] = {0xB0 | channel, 123, 0, 0xB0 | channel, 120, 0, 0xE0 | channel, 0, 64};
                 r->current = (AJByte){sequence[part], part % 3 == 2, 0};
+                begin_message_if_needed(r);
                 r->active = true; r->bit = 0; r->remaining = uart_bit_samples(r);
                 if (r->panicPosition == 144) r->panicking = false;
             } else if (rd != w && r->queue[rd % CAPACITY].hostTime <= now) {
                 r->current = r->queue[rd % CAPACITY];
                 atomic_store_explicit(&r->readIndex, rd + 1, memory_order_release);
+                begin_message_if_needed(r);
                 r->active = true; r->bit = 0; r->remaining = uart_bit_samples(r);
             } else {
                 // Reset the idle/STOP reservoir at a new burst. At 96 kHz no
@@ -111,6 +148,7 @@ void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64
         bool zero = r->active && (r->bit == 0 || (r->bit < 9 && !(r->current.byte & (1u << (r->bit - 1)))));
         left[i] = zero ? on : 0; right[i] = zero ? -on : 0;
         if (r->remaining) r->remaining--;
+        if (r->messageAge < UINT64_MAX) r->messageAge++;
     }
 }
 uint32_t aj_pending(AJRenderer *r) {

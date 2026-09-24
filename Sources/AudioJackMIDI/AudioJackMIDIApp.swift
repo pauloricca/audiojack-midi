@@ -2,14 +2,23 @@ import SwiftUI
 
 @main
 struct AudioJackMIDIApp: App {
+    @NSApplicationDelegateAdaptor(AudioJackAppDelegate.self) private var delegate
     @StateObject private var state = AppState()
     var body: some Scene {
         Window("AudioJack MIDI", id: "main") {
             ContentView(state: state)
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in state.shutdown() }
+                .onAppear { delegate.state = state }
         }
         .windowResizability(.contentSize)
         .commands { CommandGroup(replacing: .newItem) {} }
+    }
+}
+final class AudioJackAppDelegate: NSObject, NSApplicationDelegate {
+    weak var state: AppState?
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let state else { return .terminateNow }
+        state.shutdown { sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
     }
 }
 struct ContentView: View {
@@ -133,6 +142,20 @@ struct ContentView: View {
             Picker("Note Off", selection: $state.velocityZero) {
                 Text("Standard 0x8n").tag(false); Text("Note On, velocity 0").tag(true)
             }.pickerStyle(.segmented)
+            HStack {
+                Text("Minimum message interval")
+                Spacer()
+                TextField("Milliseconds", value: Binding(
+                    get: { state.messageIntervalMS },
+                    set: { value in
+                        if value.isFinite { state.messageIntervalMS = min(60000, max(0, value)) }
+                    }), format: .number.precision(.fractionLength(0...3)))
+                    .textFieldStyle(.roundedBorder).frame(width: 100)
+                    .accessibilityLabel("Minimum message interval in milliseconds")
+                Text("ms")
+            }
+            Text("Start-to-start spacing. Default 5 ms; enter 0–60,000 ms (0 disables). Press Return to apply. Larger values delay queued notes and Panic.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Stepper("Inter-message idle: \(state.idleBits) bits", value: $state.idleBits, in: 0...4)
         }
     }

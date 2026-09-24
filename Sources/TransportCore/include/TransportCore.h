@@ -10,6 +10,9 @@ void aj_destroy(AJRenderer *r);
 // One serialized producer, one audio consumer. Whole batch accepted or rejected.
 bool aj_enqueue(AJRenderer *r, const AJByte *bytes, uint32_t count);
 void aj_configure(AJRenderer *r, float amplitude, bool reversed, uint32_t idleBits);
+// Minimum message start-to-start interval, 0–60000 ms; zero disables pacing.
+void aj_set_message_interval(AJRenderer *r, double milliseconds);
+bool aj_panic_pending(AJRenderer *r);
 void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64_t hostTime);
 void aj_panic(AJRenderer *r);
 uint32_t aj_pending(AJRenderer *r);
