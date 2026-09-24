@@ -25,8 +25,9 @@ The scripts place compiler caches in the project so they also work in restricted
 
 1. Connect the headphone output to the FM-1's TRS MIDI input. Set the FM-1 MIDI channel to All, as in the brief.
 2. Open the app and select **External Headphones** (or the corresponding stereo headphone device). The app opens with output stopped.
-3. Keep the defaults: **96 kHz, 90% amplitude, Reversed polarity, Standard Note Off, **5 ms minimum message interval**, 0 idle bits**.
-4. Click **Start adapter**, expand **Test generator**, then choose **Single C4** or **Repeat C4 → E4 → G4 → C5**. Test notes default to channel 1; the channel picker affects only the built-in generator.
+3. Set the selected output device to 100% volume and make sure it is not muted. The app shows a warning and keeps Calibration locked until a readable device volume reaches 100%.
+4. Click **Start adapter**, expand **Calibration**, and use the two guided steps. First find a reliable amplitude with a test note, then find reliable message spacing with the notes-and-CC burst.
+5. Use **Test your connection** for the single-note, scale, chord, velocity, fast-note, program-change, pitch-bend, stress, and repeating diagnostic sequences. Tests default to channel 1.
 5. In a DAW or MIDI application, choose **AudioJack MIDI Out** as its MIDI output. The byte monitor shows input even while audio output is stopped; stopped input is discarded, never replayed on Start.
 6. Use **PANIC** or **Command–.** if notes get stuck. It cancels tests, drops queued traffic, finishes the current UART byte, then sends CC123, CC120, and pitch-bend center on all 16 channels. Stop and Quit send Panic before releasing audio, waiting asynchronously for all 48 paced Panic messages and a short output-drain period. Large intervals therefore also lengthen Stop and Quit.
 
@@ -34,11 +35,12 @@ Digital amplitude does not set macOS hardware volume. Output voltage still depen
 
 ## Controls and diagnostics
 
-The main view shows the virtual port, listening/receiving status while active, selected audio device, and transport settings summary. Tests and the byte monitor are collapsed by default. While stopped, the adapter explicitly shows Paused; the virtual MIDI port remains available.
+The main view shows the read-only virtual MIDI output name, listening/receiving status while active, selected audio device, and transport settings summary. While stopped, the adapter explicitly shows Paused; the virtual MIDI port remains available.
 
-- **Adapter settings** (collapsed by default): amplitude 50–99%, Normal/Reversed polarity, standard Note Off or Note On velocity zero, 0–4 idle bit-times between complete messages, and 96/192 kHz.
-- **Minimum message interval**: editable start-to-start spacing in milliseconds, default **5 ms**, range **0–60,000 ms**, including fractional values. Press Return to apply; 0 disables pacing. The audio renderer enforces this for virtual-port input, built-in tests, and Panic. Natural silence counts toward the interval; bytes inside a message retain their UART timing. The idle-bit setting remains an independent minimum silence after a message; the two limits overlap rather than adding together.
-- Amplitude, polarity, note-off mode, message interval, and idle spacing apply while running. Stop output before changing device or sample rate. Note-off mode is latched when each message begins.
+- **Calibration** (collapsible): choose a MIDI channel and note, then test amplitude from 50–100%. **No** advances through 50, 60, 70, 80, 85, 90, 92, 94, 96, 98, and 100%; **Yes** advances to message spacing. The second step sends a short burst of notes and controller messages and increases the start-to-start spacing when **No** is selected.
+- **TRS MIDI wiring**: choose Type A or Type B beside the Start/Stop button. Type A uses Tip as the current sink and Ring as the current source; Type B swaps them.
+- **Advanced settings** (collapsed by default): 96/192 kHz and standard Note Off or Note On velocity zero. Inter-message idle is fixed at zero and no longer exposed as a separate control.
+- Amplitude, TRS MIDI wiring, note-off mode, and message spacing apply while running. Stop output before changing device or sample rate. Note-off mode is latched when each message begins.
 - The app requests the selected device's nominal sample rate and verifies it before starting; it does not silently fall back to 44.1/48 kHz. The device's rate remains at the requested setting after Stop. Rate changes or device disappearance detected while running stop output and display an error.
 - The **IN** monitor shows original incoming bytes; **TEST** shows generator bytes. Conversion occurs afterward. The monitor is bounded and sampled to keep the UI responsive; it is not a lossless recording. Input counts include generated test traffic, sent counts include Panic, and sent/queued/dropped counters reset when a new audio engine starts.
 - Eight test sequences cover a single note, scale, chord, velocities, fast notes, programs, pitch bends, and stress. The stress sequence includes repeated F4 (MIDI note 65) and overlapping notes. It is a new diagnostic, not a reproduction of the unavailable original WAV.
@@ -52,13 +54,13 @@ The main view shows the virtual port, listening/receiving status while active, s
 - `AudioOutputEngine`: a persistent CoreAudio HAL output unit bound to the chosen device, using two noninterleaved Float32 channels at its verified nominal rate.
 - `AppState` / `TestGenerator`: native SwiftUI controls, diagnostics, transport lifecycle, and cancellable test scheduling.
 
-Each UART byte is start 0, eight LSB-first data bits, stop 1. Reversed polarity maps logical 0 to L = −A / R = +A; logical 1 is silence. Normal swaps the two channels.
+Each UART byte is start 0, eight LSB-first data bits, stop 1. TRS MIDI Type A maps logical 0 to L/Tip = −A and R/Ring = +A; logical 1 is silence. Type B swaps the two channels.
 
 At **96 kHz**, START and each of the eight data bits are always **exactly 3 samples**. STOP is 3 or 4 samples, using a fractional byte-duration accumulator so contiguous bytes average **30.72 samples (320 µs)**. Each byte starts a fresh fixed-width active-bit clock; fractional correction is confined to the logical-1 STOP/idle region. Over 25 contiguous bytes, 18 have a four-sample STOP and 7 have a three-sample STOP. The STOP/idle remainder survives audio buffer boundaries and resets after an actual idle interval. Optional inter-message idle still adds 0–4 nominal bit-times, with rounding confined to silence.
 
 This is an experiment to address the reported deterministic F4 release failure; hardware success is not yet verified. **192 kHz remains unchanged**, using absolute rounded bit boundaries with its original fractional bit accumulator.
 
-CoreMIDI host timestamps are retained. Bytes are not started before their timestamp; late/immediate input starts as soon as the audio callback can consume it. FIFO arrival order wins when callers submit conflicting/out-of-order timestamps; this is not a sequencer that reorders events. Traffic above the configured message rate accumulates latency: the default 5 ms interval allows at most 200 messages/second, spreading out chords and dense controller traffic. The UART limit of 3,125 bytes/second also applies. Long SysEx messages are not split by the interval, and real-time bytes embedded within an unfinished message retain their position without an added gap. Audio hardware buffering adds latency, and wall-clock test-generator scheduling is not a hard realtime clock.
+CoreMIDI host timestamps are retained. Bytes are not started before their timestamp; late/immediate input starts as soon as the audio callback can consume it. FIFO arrival order wins when callers submit conflicting/out-of-order timestamps; this is not a sequencer that reorders events. Traffic above the calibrated message rate accumulates latency. The UART limit of 3,125 bytes/second also applies. Long SysEx messages are not split by the interval, and real-time bytes embedded within an unfinished message retain their position without an added gap. Audio hardware buffering adds latency, and wall-clock test-generator scheduling is not a hard realtime clock.
 
 Use one logical MIDI stream at a time when sending fragmented messages or SysEx. The built-in generator and multiple clients should not inject channel messages into another sender's unfinished message. SysEx passthrough is included, but reliable large transfers over the physical connection are not validated.
 

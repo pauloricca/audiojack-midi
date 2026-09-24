@@ -48,7 +48,7 @@ bool aj_enqueue(AJRenderer *r, const AJByte *bytes, uint32_t count) {
 }
 void aj_configure(AJRenderer *r, float amplitude, bool reversed, uint32_t idleBits) {
     if (amplitude < .50f) amplitude = .50f;
-    if (amplitude > .99f) amplitude = .99f;
+    if (amplitude > 1.0f) amplitude = 1.0f;
     uint32_t bits; memcpy(&bits, &amplitude, sizeof(bits));
     atomic_store(&r->amplitudeBits, bits);
     atomic_store(&r->reversed, reversed);

@@ -193,4 +193,17 @@ final class TransportTests: XCTestCase {
         }
         XCTAssertTrue(TestPattern.stress.events(channel: 0).contains { $0.bytes == [0x80, 65, 0] })
     }
+
+    func testCalibrationBurstBalancesNotesAndIncludesControllerTraffic() {
+        let events = TestPattern.calibrationBurst(channel: 5, note: 60)
+        var held: [UInt8: Int] = [:]
+        XCTAssertEqual(events.map(\.delay), events.map(\.delay).sorted())
+        XCTAssertTrue(events.contains { $0.bytes.first == 0xB5 })
+        for event in events {
+            XCTAssertEqual(event.bytes[0] & 15, 5)
+            if event.bytes[0] & 0xF0 == 0x90 { held[event.bytes[1], default: 0] += 1 }
+            if event.bytes[0] & 0xF0 == 0x80 { held[event.bytes[1], default: 0] -= 1 }
+        }
+        XCTAssertTrue(held.values.allSatisfy { $0 == 0 })
+    }
 }

@@ -50,4 +50,15 @@ enum TestPattern: String, CaseIterable, Identifiable {
              TestEvent(delay: Double(i) * 0.5 + 0.35, bytes: [0x80 | channel, UInt8(n), 0])]
         }
     }
+    static func calibrationBurst(channel: UInt8, note: UInt8) -> [TestEvent] {
+        var events: [TestEvent] = []
+        for index in 0..<8 {
+            let time = Double(index) * 0.045
+            let pitch = UInt8(min(127, Int(note) + index % 4))
+            events.append(TestEvent(delay: time, bytes: [0xB0 | channel, 1, UInt8(index * 16)]))
+            events.append(TestEvent(delay: time + 0.005, bytes: [0x90 | channel, pitch, 100]))
+            events.append(TestEvent(delay: time + 0.025, bytes: [0x80 | channel, pitch, 0]))
+        }
+        return events
+    }
 }

@@ -8,6 +8,14 @@ struct AudioDevice: Identifiable, Hashable {
     let name: String
     let rates: [Int]
 }
+struct OutputVolumeStatus: Equatable {
+    let volume: Float?
+    let muted: Bool
+
+    var needsAttention: Bool {
+        muted || (volume.map { $0 < 0.999 } ?? false)
+    }
+}
 struct AudioError: LocalizedError {
     let message: String
     var errorDescription: String? { message }
@@ -28,6 +36,43 @@ final class AudioOutputEngine {
         var value: Double = 0; var size = UInt32(MemoryLayout<Double>.size)
         guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return 0 }
         return value
+    }
+    static func outputVolumeStatus(_ device: AudioDeviceID) -> OutputVolumeStatus {
+        func scalar(_ selector: AudioObjectPropertySelector, element: AudioObjectPropertyElement) -> Float? {
+            var address = AudioObjectPropertyAddress(
+                mSelector: selector,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: element
+            )
+            guard AudioObjectHasProperty(device, &address) else { return nil }
+            var value: Float = 0
+            var size = UInt32(MemoryLayout<Float>.size)
+            guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
+            return value
+        }
+        func flag(_ selector: AudioObjectPropertySelector, element: AudioObjectPropertyElement) -> Bool? {
+            var address = AudioObjectPropertyAddress(
+                mSelector: selector,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: element
+            )
+            guard AudioObjectHasProperty(device, &address) else { return nil }
+            var value: UInt32 = 0
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &value) == noErr else { return nil }
+            return value != 0
+        }
+
+        let master = scalar(kAudioDevicePropertyVolumeScalar, element: kAudioObjectPropertyElementMain)
+        let channels = [AudioObjectPropertyElement(1), AudioObjectPropertyElement(2)].compactMap {
+            scalar(kAudioDevicePropertyVolumeScalar, element: $0)
+        }
+        let volume = master ?? channels.min()
+        let muted = flag(kAudioDevicePropertyMute, element: kAudioObjectPropertyElementMain)
+            ?? [AudioObjectPropertyElement(1), AudioObjectPropertyElement(2)].contains {
+                flag(kAudioDevicePropertyMute, element: $0) == true
+            }
+        return OutputVolumeStatus(volume: volume, muted: muted)
     }
     static func devices() -> [AudioDevice] {
         var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDevices,

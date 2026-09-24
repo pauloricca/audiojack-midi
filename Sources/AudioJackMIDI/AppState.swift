@@ -77,14 +77,15 @@ final class Transport {
 }
 
 final class AppState: ObservableObject {
+    static let calibrationAmplitudeLevels = [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.92, 0.94, 0.96, 0.98, 1.00]
+
     @Published var devices: [AudioDevice] = []
-    @Published var selectedDevice: UInt32 = 0
+    @Published var selectedDevice: UInt32 = 0 { didSet { refreshOutputVolume() } }
     @Published var sampleRate = 96000
-    @Published var amplitude = 0.90 { didSet { configure() } }
+    @Published var amplitude = 0.50 { didSet { configure() } }
     @Published var reversed = true { didSet { configure() } }
     @Published var velocityZero = false { didSet { configure() } }
-    @Published var idleBits = 0 { didSet { configure() } }
-    @Published var messageIntervalMS = 5.0 { didSet { configure() } }
+    @Published var messageIntervalMS = 0.0 { didSet { configure() } }
     @Published var channel = 1
     @Published var running = false
     @Published var busy = false
@@ -97,6 +98,10 @@ final class AppState: ObservableObject {
     @Published var queued: UInt32 = 0
     @Published var dropped: UInt64 = 0
     @Published var activity = false
+    @Published var outputVolume = OutputVolumeStatus(volume: nil, muted: false)
+    @Published var calibrationStep = 1
+    @Published var calibrationNote = 60
+    @Published var calibrationQuestionVisible = false
     private let transport = Transport()
     private var port: MIDIVirtualPort?
     private var timer: Timer?
@@ -115,17 +120,26 @@ final class AppState: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in self?.poll() }
     }
     var supportedRates: [Int] { devices.first(where: { $0.id == selectedDevice })?.rates ?? [] }
-    func refreshDevices() { devices = AudioOutputEngine.devices() }
+    var calibrationAvailable: Bool { !outputVolume.needsAttention }
+    var outputVolumePercent: Int? { outputVolume.volume.map { Int(($0 * 100).rounded()) } }
+    func refreshDevices() {
+        devices = AudioOutputEngine.devices()
+        refreshOutputVolume()
+    }
+    func refreshOutputVolume() {
+        guard selectedDevice != 0 else { outputVolume = OutputVolumeStatus(volume: nil, muted: false); return }
+        outputVolume = AudioOutputEngine.outputVolumeStatus(selectedDevice)
+    }
     func append(_ message: String) {
         log.append(message)
         if log.count > 200 { log.removeFirst(log.count - 200) }
     }
     private func configure() {
-        let a = Float(amplitude), r = reversed, bits = idleBits, off = velocityZero, interval = messageIntervalMS
+        let a = Float(amplitude), r = reversed, off = velocityZero, interval = messageIntervalMS
         transport.queue.async { [transport] in
             transport.midiParser.velocityZeroNoteOff = off; transport.testParser.velocityZeroNoteOff = off
             if let renderer = transport.engine.renderer {
-                aj_configure(renderer, a, r, UInt32(bits))
+                aj_configure(renderer, a, r, 0)
                 aj_set_message_interval(renderer, interval)
             }
         }
@@ -133,10 +147,10 @@ final class AppState: ObservableObject {
     func start() {
         guard !busy, !running, portReady else { return }
         busy = true; status = "Starting output…"
-        let device = selectedDevice, rate = sampleRate, amp = Float(amplitude), reverse = reversed, bits = idleBits, interval = messageIntervalMS
+        let device = selectedDevice, rate = sampleRate, amp = Float(amplitude), reverse = reversed, interval = messageIntervalMS
         transport.queue.async { [weak self, transport] in
             do {
-                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: bits, messageIntervalMS: interval)
+                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: 0, messageIntervalMS: interval)
                 transport.midiParser.reset(); transport.testParser.reset(); transport.playback.discard(); transport.accepting = true
                 DispatchQueue.main.async { [weak self] in
                     self?.running = true; self?.busy = false
@@ -176,6 +190,40 @@ final class AppState: ObservableObject {
         }
         append("Test: \(pattern.rawValue), MIDI channel \(channel)")
     }
+    func playCalibrationTest() {
+        guard calibrationAvailable, running, !busy else { return }
+        let ch = UInt8(channel - 1)
+        let note = UInt8(min(127, max(0, calibrationNote)))
+        let events: [TestEvent]
+        if calibrationStep == 1 {
+            events = [
+                TestEvent(delay: 0, bytes: [0x90 | ch, note, 100]),
+                TestEvent(delay: 0.5, bytes: [0x80 | ch, note, 0])
+            ]
+        } else {
+            events = TestPattern.calibrationBurst(channel: ch, note: note)
+        }
+        transport.queue.async { [transport] in
+            transport.restartTest(events, repeatDiagnostic: false, channel: ch)
+        }
+        calibrationQuestionVisible = true
+        append(calibrationStep == 1 ? "Calibration test note at \(Int(amplitude * 100))%." : "Calibration burst at \(messageIntervalMS) ms spacing.")
+    }
+    func calibrationWorked() {
+        guard calibrationQuestionVisible else { return }
+        calibrationQuestionVisible = false
+        if calibrationStep == 1 { calibrationStep = 2 }
+    }
+    func calibrationFailed() {
+        guard calibrationQuestionVisible else { return }
+        if calibrationStep == 1 {
+            amplitude = Self.calibrationAmplitudeLevels.first(where: { $0 > amplitude + 0.001 }) ?? 1.0
+        } else {
+            let gaps = [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.5, 10.0, 15.0, 20.0]
+            messageIntervalMS = gaps.first(where: { $0 > messageIntervalMS + 0.001 }) ?? 20.0
+        }
+        calibrationQuestionVisible = false
+    }
     func toggleDiagnostic() {
         guard running, !busy else { return }
         if repeating { panic(); return }
@@ -189,6 +237,7 @@ final class AppState: ObservableObject {
     private func poll() {
         polls += 1
         let checkDevice = polls % 20 == 0
+        if checkDevice { refreshOutputVolume() }
         transport.queue.async { [weak self, transport] in
             let received = transport.inputBytes, monitor = transport.monitor
             transport.monitor.removeAll(keepingCapacity: true)
