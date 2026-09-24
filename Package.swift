@@ -2,7 +2,7 @@
 import PackageDescription
 let package = Package(
     name: "AudioJackMIDI",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v12)],
     products: [.executable(name: "AudioJackMIDI", targets: ["AudioJackMIDI"])],
     targets: [
         .target(name: "TransportCore", publicHeadersPath: "include"),

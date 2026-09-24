@@ -1,22 +1,29 @@
 import SwiftUI
 
+private let audioJackBlue = Color(red: 0, green: 80.0 / 255, blue: 1)
+private var bundledIconURL: URL? {
+    let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String ?? "AppIcon"
+    return Bundle.main.url(forResource: name, withExtension: "icns")
+}
+
 @main
 struct AudioJackMIDIApp: App {
     @NSApplicationDelegateAdaptor(AudioJackAppDelegate.self) private var delegate
     @StateObject private var state = AppState()
     var body: some Scene {
-        Window("AudioJack MIDI", id: "main") {
+        WindowGroup("AudioJack MIDI") {
             ContentView(state: state)
+                .accentColor(audioJackBlue)
+                .tint(audioJackBlue)
                 .onAppear { delegate.state = state }
         }
-        .windowResizability(.contentSize)
         .commands { CommandGroup(replacing: .newItem) {} }
     }
 }
 final class AudioJackAppDelegate: NSObject, NSApplicationDelegate {
     weak var state: AppState?
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+        if let url = bundledIconURL,
            let icon = NSImage(contentsOf: url) {
             NSApplication.shared.applicationIconImage = icon
         }
@@ -65,7 +72,7 @@ struct ContentView: View {
         )
     }
     private var appIcon: NSImage {
-        guard let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+        guard let url = bundledIconURL,
               let image = NSImage(contentsOf: url) else {
             return NSApplication.shared.applicationIconImage
         }
@@ -184,7 +191,6 @@ struct ContentView: View {
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
-            .disclosureGroupStyle(FullWidthDisclosureStyle())
             .frame(width: 720)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -201,7 +207,10 @@ struct ContentView: View {
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
             Button("Open Sound Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Sound-Settings.extension") {
+                let pane: String
+                if #available(macOS 13, *) { pane = "com.apple.Sound-Settings.extension" }
+                else { pane = "com.apple.preference.sound" }
+                if let url = URL(string: "x-apple.systempreferences:\(pane)") {
                     NSWorkspace.shared.open(url)
                 }
             }.controlSize(.small)
@@ -260,7 +269,7 @@ struct ContentView: View {
         @ViewBuilder trailing: @escaping () -> Trailing,
         @ViewBuilder content: @escaping () -> Content
     ) -> some View {
-        DisclosureGroup(isExpanded: isExpanded) {
+        FullWidthDisclosure(isExpanded: isExpanded) {
             content().padding(.top, 12)
         } label: {
             HStack {
@@ -278,15 +287,15 @@ struct ContentView: View {
     private var calibrationStepOne: some View {
         calibrationCard(step: 1, title: "Find the signal level", subtitle: "Start low. Increase until your instrument plays reliably.") {
             VStack(spacing: 10) {
-                Grid(horizontalSpacing: 12, verticalSpacing: 4) {
-                    GridRow {
-                        Text("Amplitude")
+                VStack(spacing: 4) {
+                    HStack(spacing: 12) {
+                        Text("Amplitude").frame(width: 70, alignment: .leading)
                         Slider(value: amplitudeStep, in: 0...Double(AppState.calibrationAmplitudeLevels.count - 1), step: 1)
                         Text("\(Int((state.amplitude * 100).rounded()))%")
                             .monospacedDigit().frame(width: 48)
                     }
-                    GridRow {
-                        Color.clear.frame(height: 1)
+                    HStack(spacing: 12) {
+                        Color.clear.frame(width: 70, height: 1)
                         HStack(spacing: 0) {
                             ForEach(AppState.calibrationAmplitudeLevels, id: \.self) { level in
                                 Text("\(Int((level * 100).rounded()))")
@@ -322,7 +331,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 Text("\(step)").font(.headline).foregroundStyle(.white)
-                    .frame(width: 34, height: 34).background(Color.accentColor, in: Circle())
+                    .frame(width: 34, height: 34).background(audioJackBlue, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.headline)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
@@ -441,7 +450,7 @@ private struct AnswerButtonStyle: ButtonStyle {
     let color: Color
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .fontWeight(.semibold).foregroundStyle(.white)
+            .font(.body.weight(.semibold)).foregroundStyle(.white)
             .frame(minWidth: 54).padding(.vertical, 6)
             .background(color.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: 6))
     }
@@ -454,27 +463,30 @@ private extension View {
 }
 
 /// A single keyboard-accessible button owns the entire header hit area.
-private struct FullWidthDisclosureStyle: DisclosureGroupStyle {
-    func makeBody(configuration: Configuration) -> some View {
+private struct FullWidthDisclosure<Content: View, Label: View>: View {
+    @Binding var isExpanded: Bool
+    @ViewBuilder var content: () -> Content
+    @ViewBuilder var label: () -> Label
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                configuration.isExpanded.toggle()
+                isExpanded.toggle()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 12)
                         .accessibilityHidden(true)
-                    configuration.label
+                    label()
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
-            if configuration.isExpanded { configuration.content }
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            if isExpanded { content() }
         }
     }
 }
