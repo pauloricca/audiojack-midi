@@ -3,33 +3,55 @@ import SwiftUI
 private let audioJackBlue = Color(red: 0, green: 80.0 / 255, blue: 1)
 private var bundledIconURL: URL? {
     let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String ?? "AppIcon"
-    return Bundle.main.url(forResource: name, withExtension: "icns")
+    return Bundle.main.resourceURL?.appendingPathComponent(name.hasSuffix(".icns") ? name : name + ".icns")
 }
+private let cachedAppIcon: NSImage = {
+    if let url = bundledIconURL, let image = NSImage(contentsOf: url) { return image }
+    return NSApplication.shared.applicationIconImage
+}()
 
 @main
 struct AudioJackMIDIApp: App {
     @NSApplicationDelegateAdaptor(AudioJackAppDelegate.self) private var delegate
-    @StateObject private var state = AppState()
     var body: some Scene {
-        WindowGroup("AudioJack MIDI") {
-            ContentView(state: state)
-                .accentColor(audioJackBlue)
-                .tint(audioJackBlue)
-                .onAppear { delegate.state = state }
-        }
+        Settings { EmptyView() }
         .commands { CommandGroup(replacing: .newItem) {} }
     }
 }
-final class AudioJackAppDelegate: NSObject, NSApplicationDelegate {
-    weak var state: AppState?
+final class AudioJackAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private let state = AppState()
+    private var mainWindow: NSWindow?
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Own the window so SwiftUI cannot replace its width constraints.
+        let height = min(850, (NSScreen.main?.visibleFrame.height ?? 950) - 100)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: height),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "AudioJack MIDI"
+        window.contentView = NSHostingView(rootView: ContentView(state: state)
+            .accentColor(audioJackBlue).tint(audioJackBlue))
+        window.contentMinSize = NSSize(width: 720, height: 400)
+        window.contentMaxSize = NSSize(width: 720, height: 10000)
+        window.collectionBehavior = [.fullScreenNone]
+        window.delegate = self
+        window.isReleasedWhenClosed = false
+        window.center()
+        mainWindow = window
+        window.makeKeyAndOrderFront(nil)
         if let url = bundledIconURL,
            let icon = NSImage(contentsOf: url) {
             NSApplication.shared.applicationIconImage = icon
         }
     }
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let width = sender.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 720, height: 400)).width
+        return NSSize(width: width, height: frameSize.height)
+    }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        mainWindow?.makeKeyAndOrderFront(nil)
+        return true
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let state else { return .terminateNow }
         state.shutdown { sender.reply(toApplicationShouldTerminate: true) }
         return .terminateLater
     }
@@ -71,13 +93,6 @@ struct ContentView: View {
             }
         )
     }
-    private var appIcon: NSImage {
-        guard let url = bundledIconURL,
-              let image = NSImage(contentsOf: url) else {
-            return NSApplication.shared.applicationIconImage
-        }
-        return image
-    }
     private var maximumContentHeight: CGFloat {
         max(500, (NSScreen.main?.visibleFrame.height ?? 900) - 100)
     }
@@ -85,7 +100,7 @@ struct ContentView: View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 12) {
-                    Image(nsImage: appIcon)
+                    Image(nsImage: cachedAppIcon)
                         .resizable().frame(width: 40, height: 40)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 3) {

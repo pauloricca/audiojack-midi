@@ -1,7 +1,5 @@
 # App icon
 
-Source artwork: `AppIcon.png`. Generated with the built-in image generation tool; alpha is preserved when converting to macOS icon sizes. `scripts/build-icon.sh` creates the ICNS used by `scripts/build-app.sh`.
+`AppIcon.png` is the approved artwork: a compact 3D keyboard joining a blue waveform on textured black paper. The app and website use this same image. The accent colour is `#0050ff`.
 
-## Generation prompt
-
-Use case: logo-brand. Asset type: finished macOS app icon for AudioJack MIDI, a small utility converting virtual MIDI to a stereo headphone/TRS signal. Create one polished, restrained native macOS icon, square 1024x1024 canvas, a softly rounded square blue tile with subtle dimensional shading and a clean silver-white 3.5 mm TRS jack plug angled diagonally, its short cable elegantly becoming a simple stepped digital pulse waveform. Large bold silhouette readable at 32px, precise two dark insulating rings on the metal TRS plug, minimal details, excellent contrast, crisp edges, tasteful soft highlights. The blue matches a native macOS utility accent. Tile inset about 8 percent from canvas edges with genuine transparent background outside the rounded tile, small soft shadow contained in canvas. Centered balanced composition, straight-on icon view, no perspective scene, no text, letters, numbers, musical notes, extra plugs, border, watermark, or surrounding mockup. This is the actual app icon asset, not a presentation of an icon.
+`scripts/build-icon.sh` generates the macOS icon sizes. The app version and build number appear in the bundled ICNS filename to invalidate icon caches. When changing the icon, increase those values in `scripts/build-app.sh` and the website icon filename. Keep only the current artwork in the working tree.

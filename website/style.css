@@ -12,11 +12,12 @@ body { margin: 0; }
 .content { max-width: 800px; margin: 32px auto 0; }
 p { margin: 0 0 16px; font-size: 1rem; line-height: 1.65; }
 .overview p { color: #dfdedb; }
-.download-row { display: flex; align-items: center; gap: 24px; margin: 28px 0 32px; }
+.downloads { margin: 28px 0 32px; }
+.download-row { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; margin: 0 0 18px; }
 .download {
   display: inline-flex; align-items: center; justify-content: center; gap: 26px;
   min-height: 50px; padding: 12px 20px; border: 2px solid #eeede8;
-  border-radius: 4px; background: #164bed; color: white;
+  border-radius: 4px; background: #0050ff; color: white;
   font-size: 1rem; font-weight: 650; text-decoration: none;
   box-shadow: 3px 3px 0 #eeede8;
 }
@@ -24,6 +25,11 @@ p { margin: 0 0 16px; font-size: 1rem; line-height: 1.65; }
 .download:focus-visible { outline: 3px solid #8eafff; outline-offset: 6px; }
 .download span { font-size: 1.4rem; line-height: 1; }
 .requirements { margin: 0; color: #aaa9a5; font-size: .875rem; line-height: 1.6; }
+a { color: #9aafff; }
+.source-button { background: transparent; min-height: 42px; font-size: .875rem; }
+.source-button:hover { background: #292929; }
+.app-preview { margin: 0 auto 32px; max-width: 720px; }
+.app-preview img { display: block; width: 100%; height: auto; border-radius: 10px; box-shadow: 0 12px 36px #0005; }
 h2 { margin: 0 0 14px; font-size: 1rem; font-weight: 650; }
 .setup { padding-top: 26px; border-top: 1px solid #383838; }
 ol { margin: 0; padding-left: 24px; }

@@ -6,22 +6,30 @@
   <meta name="description" content="A macOS utility that creates a virtual MIDI destination and encodes MIDI as an audio signal for compatible hardware. Download AudioJack MIDI.">
   <meta name="theme-color" content="#151515">
   <title>AudioJack MIDI</title>
-  <link rel="icon" href="assets/audiojack-icon-3d.png" type="image/png">
+  <link rel="icon" href="assets/audiojack-icon-0.1.8.png" type="image/png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="page">
     <h1 class="visually-hidden">AudioJack MIDI</h1>
-    <img class="banner" src="assets/audiojack-banner-v5.png" width="2172" height="724" alt="AudioJack MIDI. A laptop running a DAW connected by a stereo cable to a synthesizer.">
+    <img class="banner" src="assets/audiojack-banner.png" width="2172" height="724" alt="AudioJack MIDI. A laptop running a DAW connected by a stereo cable to a synthesizer.">
     <div class="content">
       <section class="overview" aria-label="About AudioJack MIDI">
         <p>AudioJack MIDI creates a virtual MIDI destination on your Mac and encodes incoming MIDI messages as an audio signal. It lets you send MIDI to compatible hardware through an audio output, such as the 3.5 mm headphone jack, without a separate MIDI interface.</p>
         <p>Connect to a TRS MIDI input with a normal 3.5 mm stereo cable, or to a 5-pin DIN MIDI input with a correctly wired 3.5 mm TRS-to-DIN MIDI cable. The app supports Type A and Type B wiring.</p>
       </section>
-      <div class="download-row">
-        <a class="download" href="downloads/AudioJack-MIDI-0.1.7-arm64.zip" download>Download for macOS <span aria-hidden="true">↓</span></a>
-        <p class="requirements">Version 0.1.7<br>Apple silicon · macOS 13+</p>
-      </div>
+      <section class="downloads" aria-labelledby="download-title">
+        <h2 id="download-title">Download</h2>
+        <div class="download-row">
+        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-arm64.zip" download>Apple silicon <span aria-hidden="true">↓</span></a>
+        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-x86_64.zip" download>Intel <span aria-hidden="true">↓</span></a>
+        <p class="requirements">Version 0.1.10<br>macOS 12 Monterey or later</p>
+        </div>
+        <a class="download source-button" href="https://github.com/pauloricca/audiojack-midi">Source code on GitHub <span aria-hidden="true">↗</span></a>
+      </section>
+      <figure class="app-preview">
+        <img src="assets/audiojack-app.png" alt="AudioJack MIDI on macOS, showing the virtual MIDI output, audio device selection and guided calibration controls." loading="lazy">
+      </figure>
       <section class="setup" aria-labelledby="setup-title">
         <h2 id="setup-title">How to use it</h2>
         <ol>
@@ -37,10 +45,10 @@
           <p>Unzip the download and move AudioJack MIDI to Applications. This build is ad-hoc signed but not notarized by Apple, so macOS may block it the first time you open it.</p>
           <ol>
             <li>Try to open AudioJack MIDI once, then dismiss the warning.</li>
-            <li>Open <strong>System Settings → Privacy &amp; Security</strong>.</li>
+            <li>Open <strong>System Settings → Privacy &amp; Security</strong>. On Monterey, open <strong>System Preferences → Security &amp; Privacy → General</strong>.</li>
             <li>Scroll to Security and click <strong>Open Anyway</strong> beside the AudioJack MIDI message. Confirm by clicking <strong>Open</strong>.</li>
           </ol>
-          <p class="install-note">You may be asked for your Mac login password. The exception applies only to this app, and you should only use it for a copy downloaded from this page.</p>
+          <p class="install-note">You may be asked for your Mac login password. Only approve a copy you trust. <a href="https://support.apple.com/en-gb/102445">Apple’s instructions</a>.</p>
         </div>
       </div>
     </div>

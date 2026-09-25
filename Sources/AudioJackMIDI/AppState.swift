@@ -127,8 +127,9 @@ final class AppState: ObservableObject {
         refreshOutputVolume()
     }
     func refreshOutputVolume() {
-        guard selectedDevice != 0 else { outputVolume = OutputVolumeStatus(volume: nil, muted: false); return }
-        outputVolume = AudioOutputEngine.outputVolumeStatus(selectedDevice)
+        let next = selectedDevice == 0 ? OutputVolumeStatus(volume: nil, muted: false)
+            : AudioOutputEngine.outputVolumeStatus(selectedDevice)
+        if outputVolume != next { outputVolume = next }
     }
     func append(_ message: String) {
         log.append(message)
@@ -253,9 +254,13 @@ final class AppState: ObservableObject {
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                self.activity = self.received != received; self.received = received
-                self.sent = sent; self.queued = queued; self.dropped = dropped
-                for line in monitor { self.append(line) }
+                let activity = self.received != received
+                if self.activity != activity { self.activity = activity }
+                if self.received != received { self.received = received }
+                if self.sent != sent { self.sent = sent }
+                if self.queued != queued { self.queued = queued }
+                if self.dropped != dropped { self.dropped = dropped }
+                if !monitor.isEmpty { self.log = Array((self.log + monitor).suffix(200)) }
                 if let error { self.append(error); self.status = error; self.repeating = false }
                 if lost { self.running = false; self.busy = false }
             }
