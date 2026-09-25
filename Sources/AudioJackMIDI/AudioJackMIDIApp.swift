@@ -133,8 +133,6 @@ struct ContentView: View {
                                     if state.devices.isEmpty { Text("No stereo output devices").tag(UInt32(0)) }
                                     ForEach(state.devices) { Text($0.name).tag($0.id) }
                                 }.labelsHidden().disabled(state.running || state.busy)
-                                Button { state.refreshDevices() } label: { Image(systemName: "arrow.clockwise") }
-                                    .help("Refresh output devices").disabled(state.running || state.busy)
                             }
                             Text("\(state.sampleRate / 1000) kHz stereo · \(Int((state.amplitude * 100).rounded()))% amplitude · TRS MIDI \(state.reversed ? "Type A" : "Type B")")
                                 .font(.caption).foregroundStyle(.secondary)

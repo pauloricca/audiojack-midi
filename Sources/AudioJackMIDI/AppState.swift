@@ -85,7 +85,7 @@ final class AppState: ObservableObject {
     @Published var amplitude = 0.50 { didSet { configure() } }
     @Published var reversed = true { didSet { configure() } }
     @Published var velocityZero = false { didSet { configure() } }
-    @Published var messageIntervalMS = 0.0 { didSet { configure() } }
+    @Published var messageIntervalMS = 5.0 { didSet { configure() } }
     @Published var channel = 1
     @Published var running = false
     @Published var busy = false
@@ -123,7 +123,20 @@ final class AppState: ObservableObject {
     var calibrationAvailable: Bool { !outputVolume.needsAttention }
     var outputVolumePercent: Int? { outputVolume.volume.map { Int(($0 * 100).rounded()) } }
     func refreshDevices() {
-        devices = AudioOutputEngine.devices()
+        guard !running, !busy else { return }
+        let previousDevices = devices
+        let selectedName = previousDevices.first(where: { $0.id == selectedDevice })?.name.lowercased() ?? ""
+        let laptopSpeakersSelected = selectedName.contains("speakers") &&
+            (selectedName.contains("macbook") || selectedName.contains("built-in") || selectedName.contains("internal"))
+        let nextDevices = AudioOutputEngine.devices()
+        if devices != nextDevices { devices = nextDevices }
+        if laptopSpeakersSelected,
+           let headphones = nextDevices.first(where: { $0.name.caseInsensitiveCompare("External Headphones") == .orderedSame }),
+           !previousDevices.contains(where: { $0.id == headphones.id && $0.name == headphones.name }) {
+            selectedDevice = headphones.id
+        } else if !nextDevices.contains(where: { $0.id == selectedDevice }) {
+            selectedDevice = nextDevices.first(where: { $0.id == AudioOutputEngine.defaultDevice() })?.id ?? nextDevices.first?.id ?? 0
+        }
         refreshOutputVolume()
     }
     func refreshOutputVolume() {
@@ -238,7 +251,10 @@ final class AppState: ObservableObject {
     private func poll() {
         polls += 1
         let checkDevice = polls % 20 == 0
-        if checkDevice { refreshOutputVolume() }
+        if checkDevice {
+            if !running && !busy { refreshDevices() }
+            else { refreshOutputVolume() }
+        }
         transport.queue.async { [weak self, transport] in
             let received = transport.inputBytes, monitor = transport.monitor
             transport.monitor.removeAll(keepingCapacity: true)
