@@ -8,7 +8,7 @@
   <title>AudioJack MIDI</title>
   <link rel="icon" href="assets/audiojack-icon-0.1.8.png" type="image/png">
   <link rel="stylesheet" href="style.css">
-  <script defer src="https://umami.ricca.uk/script.js" data-website-id="b17485fe-2fce-4f49-9bba-c09693c68dbd"></script>
+  <script defer src="https://umami.ricca.uk/script.js" data-website-id="b17485fe-2fce-4f49-9bba-c09693c68dbd" data-domains="audiojack-midi.ricca.uk"></script>
 </head>
 <body>
   <main class="page">
@@ -22,11 +22,11 @@
       <section class="downloads" aria-labelledby="download-title">
         <h2 id="download-title">Download</h2>
         <div class="download-row">
-        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-arm64.zip" download>Apple silicon <span aria-hidden="true">↓</span></a>
-        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-x86_64.zip" download>Intel <span aria-hidden="true">↓</span></a>
+        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-arm64.zip" download data-umami-event="file-download" data-umami-event-file="apple-silicon">Apple silicon <span aria-hidden="true">↓</span></a>
+        <a class="download" href="downloads/AudioJack-MIDI-0.1.10-x86_64.zip" download data-umami-event="file-download" data-umami-event-file="intel">Intel <span aria-hidden="true">↓</span></a>
         <p class="requirements">Version 0.1.10<br>macOS 12 Monterey or later</p>
         </div>
-        <a class="download source-button" href="https://github.com/pauloricca/audiojack-midi">Source code on GitHub <span aria-hidden="true">↗</span></a>
+        <a class="download source-button" data-umami-event="navigate-to-github" href="https://github.com/pauloricca/audiojack-midi" target="_blank">Source code on GitHub <span aria-hidden="true">↗</span></a>
       </section>
       <figure class="app-preview">
         <img src="assets/audiojack-app.png" alt="AudioJack MIDI on macOS, showing the virtual MIDI output, audio device selection and guided calibration controls." loading="lazy">
@@ -52,7 +52,19 @@
           <p class="install-note">You may be asked for your Mac login password. Only approve a copy you trust. <a href="https://support.apple.com/en-gb/102445">Apple’s instructions</a>.</p>
         </div>
       </div>
+      <div class="notes">
+        <p><strong>Created by <a href="https://ricca.uk" target="_blank">Paulo Ricca</a></strong></p>
+      </div>
     </div>
   </main>
+  <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+  <script>
+    kofiWidgetOverlay.draw('pauloricca', {
+      'type': 'floating-chat',
+      'floating-chat.donateButton.text': 'Support me',
+      'floating-chat.donateButton.background-color': '#00b9fe',
+      'floating-chat.donateButton.text-color': '#fff'
+    });
+  </script>
 </body>
 </html>
