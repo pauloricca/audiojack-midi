@@ -39,6 +39,7 @@ strong { font-weight: 600; color: #f0efec; }
 .notes { margin-top: 26px; padding-top: 22px; border-top: 1px solid #383838; }
 .notes p { font-size: .875rem; line-height: 1.65; color: #aaa9a5; margin-bottom: 12px; }
 .notes strong { color: #cccac5; }
+.notes--right-align { text-align: right; }
 .install { margin-top: 24px; padding: 20px; border: 1px solid #3f3f3f; background: #1b1b1b; }
 .install h2 { margin-bottom: 8px; }
 .install ol { margin: 10px 0 12px; }
@@ -51,3 +52,4 @@ strong { font-weight: 600; color: #f0efec; }
   .content { margin-top: 24px; }
   .download-row { flex-wrap: wrap; gap: 16px 24px; }
 }
+.floatingchat-container { width: 200px !important; }
