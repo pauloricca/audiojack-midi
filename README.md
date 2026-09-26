@@ -20,6 +20,8 @@ Unzip and move **AudioJack MIDI.app** to Applications. The app is ad-hoc signed,
 3. Click **Start adapter** and follow **Calibration** to set signal level and message spacing. Match the test channel to your instrument.
 4. Select **AudioJack MIDI Out** as the MIDI output in your DAW or MIDI app.
 
+At 96 kHz, **Tail stretch** is the default pulse strategy. It extends vulnerable isolated current-on pulses by one audio sample without changing UART timing. The original **Fixed 3 + STOP** waveform remains available under **Advanced settings**.
+
 **Testing** sends notes and other MIDI messages without a DAW. **Panic** (⌘.) stops stuck notes on all channels. Stop and Quit also send Panic. MIDI received while paused is discarded.
 
 ## Compatibility

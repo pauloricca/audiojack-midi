@@ -114,7 +114,7 @@ final class AudioOutputEngine {
         _ = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id)
         return id
     }
-    func start(device: AudioDeviceID, rate: Int, amplitude: Float, reversed: Bool, idleBits: Int, messageIntervalMS: Double) throws {
+    func start(device: AudioDeviceID, rate: Int, amplitude: Float, reversed: Bool, idleBits: Int, messageIntervalMS: Double, pulseStrategy: UInt32) throws {
         stop()
         var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyNominalSampleRate,
             mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
@@ -151,6 +151,7 @@ final class AudioOutputEngine {
             }
             self.renderer = renderer
             aj_configure(renderer, amplitude, reversed, UInt32(idleBits))
+            aj_set_pulse_strategy(renderer, pulseStrategy)
             aj_set_message_interval(renderer, messageIntervalMS)
             var callback = AURenderCallbackStruct(inputProc: aj_callback(), inputProcRefCon: UnsafeMutableRawPointer(renderer))
             try check(AudioUnitSetProperty(created, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0,

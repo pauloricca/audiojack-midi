@@ -38,6 +38,7 @@ final class TransportTests: XCTestCase {
     /// Independent oracle: rounded BYTE boundaries, fixed three-sample active bits.
     private func assert96kHzWaveform(_ bytes: [UInt8], file: StaticString = #filePath, line: UInt = #line) {
         let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
+        aj_set_pulse_strategy(r, 1)
         enqueue(r, bytes)
         let duration = Int((Double(bytes.count) * 30.72).rounded())
         let (left, right) = render(r, frames: duration + 1)
@@ -63,6 +64,31 @@ final class TransportTests: XCTestCase {
         // 256 byte values × all 25 phases of the .72-sample remainder.
         let bytes = (0..<6400).map { UInt8(truncatingIfNeeded: $0 * 73 + 65) }
         assert96kHzWaveform(bytes)
+    }
+
+    func test96kHzTailStretchIsDefaultAndExtendsOnlyFirstSampleAfterIsolatedZero() {
+        // 0x2A = D0..D7 0,1,0,1,0,1,0,0. D2 and D4 are isolated zeroes.
+        let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
+        enqueue(r, [0x2A])
+        let left = render(r, frames: 40).0
+
+        XCTAssertEqual(left[11], -0.9) // final D2 sample
+        XCTAssertEqual(left[12], -0.9) // one-sample tail into D3
+        XCTAssertEqual(left[13], 0)
+        XCTAssertEqual(left[17], -0.9) // final D4 sample
+        XCTAssertEqual(left[18], -0.9) // one-sample tail into D5
+        XCTAssertEqual(left[19], 0)
+    }
+
+    func test96kHzLegacyStrategyLeavesFollowingOneUntouched() {
+        let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
+        aj_set_pulse_strategy(r, 1)
+        enqueue(r, [0x2A])
+        let left = render(r, frames: 40).0
+        XCTAssertEqual(left[11], -0.9)
+        XCTAssertEqual(left[12], 0)
+        XCTAssertEqual(left[17], -0.9)
+        XCTAssertEqual(left[18], 0)
     }
 
     func test96kHzStopReservoirHasCorrectAverageByteDuration() {

@@ -194,7 +194,7 @@ struct ContentView: View {
                     Text("Channel \(state.channel)").font(.caption).foregroundStyle(.secondary)
                 } content: { testControls }
                 boxedDisclosure(title: "Advanced settings", isExpanded: $advanced, dimmed: false) {
-                    Text("\(state.sampleRate / 1000) kHz · \(state.velocityZero ? "Velocity-zero Note Off" : "Standard Note Off")")
+                    Text("\(state.sampleRate / 1000) kHz · \(state.pulseStrategy.title) · \(state.velocityZero ? "Velocity-zero Note Off" : "Standard Note Off")")
                         .font(.caption).foregroundStyle(.secondary)
                 } content: { settings }
                 boxedDisclosure(title: "Diagnostics & byte monitor", isExpanded: $diagnostics, dimmed: false) {
@@ -379,7 +379,13 @@ struct ContentView: View {
             Picker("Sample rate", selection: $state.sampleRate) {
                 Text("96 kHz").tag(96000); Text("192 kHz").tag(192000)
             }.pickerStyle(.segmented).disabled(state.running || state.busy)
-            Text("Stop the adapter to change device or rate. Note Off mode applies live.").font(.caption).foregroundStyle(.secondary)
+            Text("Stop the adapter to change device or rate. Pulse strategy and Note Off mode apply live.").font(.caption).foregroundStyle(.secondary)
+            Picker("96 kHz pulse strategy", selection: $state.pulseStrategy) {
+                Text("Tail stretch").tag(PulseStrategy.tail)
+                Text("Fixed 3 + STOP").tag(PulseStrategy.fixed3Stop)
+            }.pickerStyle(.segmented).disabled(state.busy)
+            Text("Tail stretch extends isolated current-on pulses by one 96 kHz sample and is the default. Fixed 3 + STOP preserves the original waveform. This setting does not alter 192 kHz timing.")
+                .font(.caption).foregroundStyle(.secondary)
             Picker("Note Off", selection: $state.velocityZero) {
                 Text("Standard 0x8n").tag(false); Text("Note On, velocity 0").tag(true)
             }.pickerStyle(.segmented)
