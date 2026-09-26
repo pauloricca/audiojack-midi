@@ -76,12 +76,26 @@ final class Transport {
     }
 }
 
+enum PulseStrategy: UInt32, CaseIterable, Identifiable {
+    case tail = 0
+    case fixed3Stop = 1
+
+    var id: UInt32 { rawValue }
+    var title: String {
+        switch self {
+        case .tail: return "Tail stretch"
+        case .fixed3Stop: return "Fixed 3 + STOP"
+        }
+    }
+}
+
 final class AppState: ObservableObject {
     static let calibrationAmplitudeLevels = [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.92, 0.94, 0.96, 0.98, 1.00]
 
     @Published var devices: [AudioDevice] = []
     @Published var selectedDevice: UInt32 = 0 { didSet { refreshOutputVolume() } }
     @Published var sampleRate = 96000
+    @Published var pulseStrategy: PulseStrategy = .tail { didSet { configure() } }
     @Published var amplitude = 0.50 { didSet { configure() } }
     @Published var reversed = true { didSet { configure() } }
     @Published var velocityZero = false { didSet { configure() } }
@@ -150,10 +164,12 @@ final class AppState: ObservableObject {
     }
     private func configure() {
         let a = Float(amplitude), r = reversed, off = velocityZero, interval = messageIntervalMS
+        let strategy = pulseStrategy.rawValue
         transport.queue.async { [transport] in
             transport.midiParser.velocityZeroNoteOff = off; transport.testParser.velocityZeroNoteOff = off
             if let renderer = transport.engine.renderer {
                 aj_configure(renderer, a, r, 0)
+                aj_set_pulse_strategy(renderer, strategy)
                 aj_set_message_interval(renderer, interval)
             }
         }
@@ -162,9 +178,10 @@ final class AppState: ObservableObject {
         guard !busy, !running, portReady else { return }
         busy = true; status = "Starting output…"
         let device = selectedDevice, rate = sampleRate, amp = Float(amplitude), reverse = reversed, interval = messageIntervalMS
+        let strategy = pulseStrategy.rawValue
         transport.queue.async { [weak self, transport] in
             do {
-                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: 0, messageIntervalMS: interval)
+                try transport.engine.start(device: device, rate: rate, amplitude: amp, reversed: reverse, idleBits: 0, messageIntervalMS: interval, pulseStrategy: strategy)
                 transport.midiParser.reset(); transport.testParser.reset(); transport.playback.discard(); transport.accepting = true
                 DispatchQueue.main.async { [weak self] in
                     self?.running = true; self?.busy = false
