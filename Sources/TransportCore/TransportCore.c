@@ -10,8 +10,8 @@ struct AJRenderer {
     AJByte queue[CAPACITY];
     _Atomic uint32_t writeIndex, readIndex;
     _Atomic uint64_t dropped, transmitted;
-    _Atomic uint32_t amplitudeBits, reversed, idleBits;
-    uint32_t rate, fraction, remaining, bit, gap;
+    _Atomic uint32_t amplitudeBits, reversed, idleBits, pulseStrategy;
+    uint32_t rate, fraction, remaining, bit, gap, tailSamples;
     bool active;
     _Atomic uint32_t intervalSamples;
     uint64_t messageAge;
@@ -30,6 +30,7 @@ AJRenderer *aj_create(uint32_t rate, double ticksPerSecond) {
     r->rate = rate; r->ticksPerSample = ticksPerSecond / rate;
     r->fraction = BAUD / 2;
     r->betweenMessages = true;
+    atomic_store(&r->pulseStrategy, AJ_PULSE_TAIL);
     aj_configure(r, .90f, true, 0);
     return r;
 }
@@ -53,6 +54,9 @@ void aj_configure(AJRenderer *r, float amplitude, bool reversed, uint32_t idleBi
     atomic_store(&r->amplitudeBits, bits);
     atomic_store(&r->reversed, reversed);
     atomic_store(&r->idleBits, idleBits > 4 ? 4 : idleBits);
+}
+void aj_set_pulse_strategy(AJRenderer *r, uint32_t strategy) {
+    atomic_store(&r->pulseStrategy, strategy == AJ_PULSE_FIXED3_STOP ? AJ_PULSE_FIXED3_STOP : AJ_PULSE_TAIL);
 }
 void aj_set_message_interval(AJRenderer *r, double milliseconds) {
     if (!isfinite(milliseconds)) milliseconds = 5;
@@ -87,12 +91,24 @@ static uint32_t uart_bit_samples(AJRenderer *r) {
     r->fraction %= BAUD;
     return byteSamples - 9 * 3; // STOP is 3 or 4 samples; mean 3.72.
 }
+static bool framed_zero(const AJRenderer *r, uint32_t bit) {
+    if (bit == 0) return true; // START
+    if (bit < 9) return !(r->current.byte & (1u << (bit - 1)));
+    return false; // STOP
+}
+static bool isolated_data_zero(const AJRenderer *r) {
+    if (r->bit < 1 || r->bit > 8 || !framed_zero(r, r->bit)) return false;
+    return !framed_zero(r, r->bit - 1) && !framed_zero(r, r->bit + 1);
+}
 void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64_t hostTime) {
     uint32_t raw = atomic_load(&r->amplitudeBits);
     float amp; memcpy(&amp, &raw, sizeof(amp));
     float on = atomic_load(&r->reversed) ? -amp : amp;
     for (uint32_t i = 0; i < frames; i++) {
         if (r->active && r->remaining == 0) {
+            bool extendTail = r->rate == 96000 &&
+                atomic_load(&r->pulseStrategy) == AJ_PULSE_TAIL &&
+                isolated_data_zero(r);
             r->bit++;
             if (r->bit == 10) {
                 r->active = false;
@@ -104,6 +120,7 @@ void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64
                     r->panicPosition = 0;
                 }
             } else r->remaining = uart_bit_samples(r);
+            r->tailSamples = extendTail ? 1 : 0;
         }
         if (!r->active && r->remaining == 0 && r->gap) {
             r->remaining = bit_samples(r); r->gap--;
@@ -145,8 +162,10 @@ void aj_render(AJRenderer *r, float *left, float *right, uint32_t frames, uint64
                 r->fraction = BAUD / 2;
             }
         }
-        bool zero = r->active && (r->bit == 0 || (r->bit < 9 && !(r->current.byte & (1u << (r->bit - 1)))));
+        bool zero = r->active && framed_zero(r, r->bit);
+        if (r->tailSamples) zero = true;
         left[i] = zero ? on : 0; right[i] = zero ? -on : 0;
+        if (r->tailSamples) r->tailSamples--;
         if (r->remaining) r->remaining--;
         if (r->messageAge < UINT64_MAX) r->messageAge++;
     }
