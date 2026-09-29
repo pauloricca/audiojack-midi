@@ -23,15 +23,15 @@ final class AudioJackAppDelegate: NSObject, NSApplicationDelegate, NSWindowDeleg
     private var mainWindow: NSWindow?
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Own the window so SwiftUI cannot replace its width constraints.
-        let height = min(850, (NSScreen.main?.visibleFrame.height ?? 950) - 100)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: height),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 400),
+                              styleMask: [.titled, .closable, .miniaturizable],
                               backing: .buffered, defer: false)
         window.title = "AudioJack MIDI"
-        window.contentView = NSHostingView(rootView: ContentView(state: state)
+        window.contentView = NSHostingView(rootView: ContentView(state: state) { [weak self] height in
+            self?.fitWindowToContent(height)
+        }
             .accentColor(audioJackBlue).tint(audioJackBlue))
-        window.contentMinSize = NSSize(width: 720, height: 400)
-        window.contentMaxSize = NSSize(width: 720, height: 10000)
+        window.contentMinSize = NSSize(width: 720, height: 1)
         window.collectionBehavior = [.fullScreenNone]
         window.delegate = self
         window.isReleasedWhenClosed = false
@@ -43,9 +43,16 @@ final class AudioJackAppDelegate: NSObject, NSApplicationDelegate, NSWindowDeleg
             NSApplication.shared.applicationIconImage = icon
         }
     }
-    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        let width = sender.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 720, height: 400)).width
-        return NSSize(width: width, height: frameSize.height)
+    private func fitWindowToContent(_ measuredHeight: CGFloat) {
+        guard let window = mainWindow, measuredHeight > 0 else { return }
+        let visibleHeight = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
+        let contentHeight = min(ceil(measuredHeight), max(1, visibleHeight - 100))
+        guard abs(window.contentLayoutRect.height - contentHeight) > 0.5 else { return }
+        var frame = window.frame
+        let top = frame.maxY
+        frame.size.height = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 720, height: contentHeight)).height
+        frame.origin.y = top - frame.height
+        window.setFrame(frame, display: true, animate: window.isVisible)
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         mainWindow?.makeKeyAndOrderFront(nil)
@@ -58,10 +65,11 @@ final class AudioJackAppDelegate: NSObject, NSApplicationDelegate, NSWindowDeleg
 }
 struct ContentView: View {
     @ObservedObject var state: AppState
-    @State private var advanced = false
-    @State private var tests = false
-    @State private var diagnostics = false
-    @State private var calibrationExpanded = true
+    let contentHeightChanged: (CGFloat) -> Void
+    @AppStorage("ui.advancedExpanded") private var advanced = false
+    @AppStorage("ui.testsExpanded") private var tests = false
+    @AppStorage("ui.diagnosticsExpanded") private var diagnostics = false
+    @AppStorage("ui.calibrationExpanded") private var calibrationExpanded = false
 
     private var deviceName: String {
         state.devices.first(where: { $0.id == state.selectedDevice })?.name ?? "No output selected"
@@ -92,9 +100,6 @@ struct ContentView: View {
                 state.amplitude = levels[index]
             }
         )
-    }
-    private var maximumContentHeight: CGFloat {
-        max(500, (NSScreen.main?.visibleFrame.height ?? 900) - 100)
     }
     var body: some View {
         ScrollView(.vertical) {
@@ -206,9 +211,12 @@ struct ContentView: View {
             .padding(20)
             .frame(width: 720)
             .fixedSize(horizontal: false, vertical: true)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: ContentHeightPreferenceKey.self, value: geometry.size.height)
+            })
         }
         .frame(width: 720)
-        .frame(maxHeight: maximumContentHeight)
+        .onPreferenceChange(ContentHeightPreferenceKey.self, perform: contentHeightChanged)
     }
 
     private var volumeWarning: some View {
@@ -320,7 +328,7 @@ struct ContentView: View {
                         Color.clear.frame(width: 48, height: 1)
                     }
                 }
-                calibrationActions(playTitle: "Play test note", active: state.calibrationStep == 1)
+                calibrationActions(step: 1, playTitle: "Play test note")
             }
         }
     }
@@ -333,10 +341,9 @@ struct ContentView: View {
                     Slider(value: $state.messageIntervalMS, in: 0...20, step: 0.5)
                     Text("\(state.messageIntervalMS, specifier: "%.1f") ms").monospacedDigit().frame(width: 68)
                 }
-                calibrationActions(playTitle: "Play test burst", active: state.calibrationStep == 2)
+                calibrationActions(step: 2, playTitle: "Play test burst")
             }
         }
-        .opacity(state.calibrationStep == 2 ? 1 : 0.55)
     }
 
     private func calibrationCard<Content: View>(step: Int, title: String, subtitle: String,
@@ -357,12 +364,12 @@ struct ContentView: View {
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.primary.opacity(0.08)))
     }
 
-    private func calibrationActions(playTitle: String, active: Bool) -> some View {
+    private func calibrationActions(step: Int, playTitle: String) -> some View {
         HStack(spacing: 12) {
-            Button { state.playCalibrationTest() } label: {
+            Button { state.playCalibrationTest(step: step) } label: {
                 Label(playTitle, systemImage: "play.fill").frame(minWidth: 130)
             }.buttonStyle(.borderedProminent)
-            if active && state.calibrationQuestionVisible {
+            if state.calibrationQuestionStep == step {
                 Text("Did it work?").fontWeight(.medium)
                 Button("Yes") { state.calibrationWorked() }
                     .buttonStyle(AnswerButtonStyle(color: .green))
@@ -371,7 +378,7 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
-        .disabled(!active || !state.running || state.busy)
+        .disabled(!state.running || state.busy)
     }
 
     private var settings: some View {
@@ -381,10 +388,11 @@ struct ContentView: View {
             }.pickerStyle(.segmented).disabled(state.running || state.busy)
             Text("Stop the adapter to change device or rate. Pulse strategy and Note Off mode apply live.").font(.caption).foregroundStyle(.secondary)
             Picker("96 kHz pulse strategy", selection: $state.pulseStrategy) {
-                Text("Tail stretch").tag(PulseStrategy.tail)
-                Text("Fixed 3 + STOP").tag(PulseStrategy.fixed3Stop)
-            }.pickerStyle(.segmented).disabled(state.busy)
-            Text("Tail stretch extends isolated current-on pulses by one 96 kHz sample and is the default. Fixed 3 + STOP preserves the original waveform. This setting does not alter 192 kHz timing.")
+                ForEach(PulseStrategy.allCases) { strategy in
+                    Text(strategy.title).tag(strategy)
+                }
+            }.pickerStyle(.menu).disabled(state.busy)
+            Text(state.pulseStrategy.explanation + " This setting does not alter 192 kHz timing.")
                 .font(.caption).foregroundStyle(.secondary)
             Picker("Note Off", selection: $state.velocityZero) {
                 Text("Standard 0x8n").tag(false); Text("Note On, velocity 0").tag(true)
@@ -462,6 +470,13 @@ struct ContentView: View {
                     .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
             }.frame(height: 130).padding(8).background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
         }
+    }
+}
+
+private struct ContentHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="100%" height="100%" fill="white"/>
+<text x="1542.00" y="54.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="normal" fill="#555555">strategy: tail</text>
+<line x1="92.00" y1="120" x2="92.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="164.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">START</text>
+<line x1="237.00" y1="120" x2="237.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="309.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">0</text>
+<line x1="382.00" y1="120" x2="382.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="454.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">1</text>
+<line x1="527.00" y1="120" x2="527.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="599.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">1</text>
+<line x1="672.00" y1="120" x2="672.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="744.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">0</text>
+<line x1="817.00" y1="120" x2="817.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="889.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">1</text>
+<line x1="962.00" y1="120" x2="962.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1034.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">0</text>
+<line x1="1107.00" y1="120" x2="1107.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1179.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">0</text>
+<line x1="1252.00" y1="120" x2="1252.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1324.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">1</text>
+<line x1="1397.00" y1="120" x2="1397.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1469.50" y="82.00" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="normal" fill="#111111">STOP</text>
+<line x1="1542.00" y1="120" x2="1542.00" y2="345" stroke="#aaaaaa" stroke-width="1"/>
+<path d="M 92.00 280.00 L 237.00 280.00 L 382.00 280.00 L 382.00 155.00 L 527.00 155.00 L 672.00 155.00 L 672.00 280.00 L 817.00 280.00 L 817.00 155.00 L 962.00 155.00 L 962.00 280.00 L 1107.00 280.00 L 1252.00 280.00 L 1252.00 155.00 L 1397.00 155.00 L 1542.00 155.00" fill="none" stroke="#111111" stroke-width="4" stroke-linejoin="miter" stroke-linecap="square"/>
+<text x="76.00" y="265.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="bold" fill="#111111">MIDI</text>
+<rect x="793.61" y="405" width="46.77" height="395" fill="#e22b2b" opacity="0.055"/>
+<rect x="1495.23" y="405" width="46.77" height="395" fill="#e22b2b" opacity="0.055"/>
+<line x1="92.00" y1="405" x2="92.00" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="138.77" y1="405" x2="138.77" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="185.55" y1="405" x2="185.55" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="232.32" y1="405" x2="232.32" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="279.10" y1="405" x2="279.10" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="325.87" y1="405" x2="325.87" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="372.65" y1="405" x2="372.65" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="419.42" y1="405" x2="419.42" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="466.19" y1="405" x2="466.19" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="512.97" y1="405" x2="512.97" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="559.74" y1="405" x2="559.74" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="606.52" y1="405" x2="606.52" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="653.29" y1="405" x2="653.29" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="700.06" y1="405" x2="700.06" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="746.84" y1="405" x2="746.84" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="793.61" y1="405" x2="793.61" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="840.39" y1="405" x2="840.39" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="887.16" y1="405" x2="887.16" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="933.94" y1="405" x2="933.94" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="980.71" y1="405" x2="980.71" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1027.48" y1="405" x2="1027.48" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1074.26" y1="405" x2="1074.26" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1121.03" y1="405" x2="1121.03" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1167.81" y1="405" x2="1167.81" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1214.58" y1="405" x2="1214.58" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1261.35" y1="405" x2="1261.35" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1308.13" y1="405" x2="1308.13" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1354.90" y1="405" x2="1354.90" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1401.68" y1="405" x2="1401.68" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1448.45" y1="405" x2="1448.45" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1495.23" y1="405" x2="1495.23" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="1542.00" y1="405" x2="1542.00" y2="800" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="92" y1="515" x2="1542" y2="515" stroke="#dddddd" stroke-width="1"/>
+<line x1="92" y1="720" x2="1542" y2="720" stroke="#dddddd" stroke-width="1"/>
+<path d="M 92.00 587.00 L 138.77 587.00 L 185.55 587.00 L 232.32 587.00 L 279.10 587.00 L 325.87 587.00 L 372.65 587.00 L 372.65 515.00 L 419.42 515.00 L 466.19 515.00 L 512.97 515.00 L 559.74 515.00 L 606.52 515.00 L 653.29 515.00 L 653.29 587.00 L 700.06 587.00 L 746.84 587.00 L 793.61 587.00 L 840.39 587.00 L 840.39 515.00 L 887.16 515.00 L 933.94 515.00 L 933.94 587.00 L 980.71 587.00 L 1027.48 587.00 L 1074.26 587.00 L 1121.03 587.00 L 1167.81 587.00 L 1214.58 587.00 L 1214.58 515.00 L 1261.35 515.00 L 1308.13 515.00 L 1354.90 515.00 L 1401.68 515.00 L 1448.45 515.00 L 1495.23 515.00 L 1542.00 515.00" fill="none" stroke="#0067ff" stroke-width="4" stroke-linejoin="miter" stroke-linecap="square"/>
+<path d="M 92.00 648.00 L 138.77 648.00 L 185.55 648.00 L 232.32 648.00 L 279.10 648.00 L 325.87 648.00 L 372.65 648.00 L 372.65 720.00 L 419.42 720.00 L 466.19 720.00 L 512.97 720.00 L 559.74 720.00 L 606.52 720.00 L 653.29 720.00 L 653.29 648.00 L 700.06 648.00 L 746.84 648.00 L 793.61 648.00 L 840.39 648.00 L 840.39 720.00 L 887.16 720.00 L 933.94 720.00 L 933.94 648.00 L 980.71 648.00 L 1027.48 648.00 L 1074.26 648.00 L 1121.03 648.00 L 1167.81 648.00 L 1214.58 648.00 L 1214.58 720.00 L 1261.35 720.00 L 1308.13 720.00 L 1354.90 720.00 L 1401.68 720.00 L 1448.45 720.00 L 1495.23 720.00 L 1542.00 720.00" fill="none" stroke="#0067ff" stroke-width="4" stroke-linejoin="miter" stroke-linecap="square"/>
+<line x1="793.61" y1="587.00" x2="840.39" y2="587.00" stroke="#e22b2b" stroke-width="4" stroke-linecap="square"/>
+<line x1="840.39" y1="587.00" x2="840.39" y2="515.00" stroke="#e22b2b" stroke-width="4"/>
+<line x1="1495.23" y1="515.00" x2="1542.00" y2="515.00" stroke="#e22b2b" stroke-width="4" stroke-linecap="square"/>
+<line x1="793.61" y1="648.00" x2="840.39" y2="648.00" stroke="#e22b2b" stroke-width="4" stroke-linecap="square"/>
+<line x1="840.39" y1="648.00" x2="840.39" y2="720.00" stroke="#e22b2b" stroke-width="4"/>
+<line x1="1495.23" y1="720.00" x2="1542.00" y2="720.00" stroke="#e22b2b" stroke-width="4" stroke-linecap="square"/>
+<text x="64.00" y="525.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="normal" fill="#0067ff">L</text>
+<text x="64.00" y="730.00" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="normal" fill="#0067ff">R</text>
+<text x="92.00" y="850.00" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="normal" fill="#555555">red = STOP: 4 samples (+1); D3 tail: 1 sample</text>
+</svg>

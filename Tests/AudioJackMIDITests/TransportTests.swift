@@ -35,17 +35,16 @@ final class TransportTests: XCTestCase {
             XCTAssertEqual(aj_transmitted(r), UInt64(bytes.count))
         }
     }
-    /// Independent oracle: rounded BYTE boundaries, fixed three-sample active bits.
+    /// Independent oracle: fixed three-sample active bits and a four-sample STOP.
     private func assert96kHzWaveform(_ bytes: [UInt8], file: StaticString = #filePath, line: UInt = #line) {
         let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
         aj_set_pulse_strategy(r, 1)
         enqueue(r, bytes)
-        let duration = Int((Double(bytes.count) * 30.72).rounded())
+        let duration = bytes.count * 31
         let (left, right) = render(r, frames: duration + 1)
         for (index, byte) in bytes.enumerated() {
-            let start = Int((Double(index) * 30.72).rounded())
-            let end = Int((Double(index + 1) * 30.72).rounded())
-            XCTAssertTrue([3, 4].contains(end - start - 27), file: file, line: line)
+            let start = index * 31
+            let end = start + 31
             for offset in 0..<(end - start) {
                 let bit = offset / 3
                 let zero = bit == 0 || (bit < 9 && byte & (1 << (bit - 1)) == 0)
@@ -60,8 +59,7 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(aj_transmitted(r), UInt64(bytes.count), file: file, line: line)
     }
 
-    func test96kHzEveryByteValueAtEveryStopAccumulatorPhase() {
-        // 256 byte values × all 25 phases of the .72-sample remainder.
+    func test96kHzEveryByteValueUsesFourSampleStop() {
         let bytes = (0..<6400).map { UInt8(truncatingIfNeeded: $0 * 73 + 65) }
         assert96kHzWaveform(bytes)
     }
@@ -80,7 +78,7 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(left[19], 0)
     }
 
-    func test96kHzLegacyStrategyLeavesFollowingOneUntouched() {
+    func test96kHzFixed3StopLeavesFollowingOneUntouched() {
         let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
         aj_set_pulse_strategy(r, 1)
         enqueue(r, [0x2A])
@@ -91,16 +89,28 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(left[18], 0)
     }
 
-    func test96kHzStopReservoirHasCorrectAverageByteDuration() {
+    func test96kHzRoundDownUsesThreeSamplesForEveryStop() {
         let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
+        aj_set_pulse_strategy(r, 2)
         enqueue(r, [UInt8](repeating: 0, count: 25))
-        let wave = render(r, frames: 769).0
-        let starts = (0..<768).filter { wave[$0] < 0 && ($0 == 0 || wave[$0 - 1] == 0) }
+        let wave = render(r, frames: 751).0
+        let starts = (0..<750).filter { wave[$0] < 0 && ($0 == 0 || wave[$0 - 1] == 0) }
         XCTAssertEqual(starts.count, 25)
-        let widths = zip(starts, Array(starts.dropFirst()) + [768]).map { $1 - $0 - 27 }
-        XCTAssertEqual(widths.filter { $0 == 4 }.count, 18)
-        XCTAssertEqual(widths.filter { $0 == 3 }.count, 7)
+        XCTAssertEqual(starts, stride(from: 0, to: 750, by: 30).map { $0 })
+        XCTAssertEqual(wave[750], 0)
         XCTAssertEqual(aj_transmitted(r), 25)
+    }
+
+    func test96kHzShapingStrategiesAlwaysUseFourSampleStop() {
+        for strategy: UInt32 in [0, 1] {
+            let r = aj_create(96000, 96000)!; defer { aj_destroy(r) }
+            aj_set_pulse_strategy(r, strategy)
+            enqueue(r, [0, 0])
+            let wave = render(r, frames: 63).0
+            XCTAssertEqual(wave[26], -0.9)
+            XCTAssertTrue(wave[27..<31].allSatisfy { $0 == 0 })
+            XCTAssertEqual(wave[31], -0.9)
+        }
     }
 
     func test96kHzStressBytesIncludingF4NoteOffUseFixedActiveBits() {
@@ -157,7 +167,7 @@ final class TransportTests: XCTestCase {
         for index in 0..<144 {
             var byte: UInt8 = 0
             for bit in 0..<8 {
-                let sample = Int((Double(index) * 30.72).rounded()) + (bit + 1) * 3 + 1
+                let sample = index * 31 + (bit + 1) * 3 + 1
                 if wave[sample] == 0 { byte |= 1 << bit }
             }
             decoded.append(byte)

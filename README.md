@@ -20,7 +20,7 @@ Unzip and move **AudioJack MIDI.app** to Applications. The app is ad-hoc signed,
 3. Click **Start adapter** and follow **Calibration** to set signal level and message spacing. Match the test channel to your instrument.
 4. Select **AudioJack MIDI Out** as the MIDI output in your DAW or MIDI app.
 
-At 96 kHz, **Tail stretch** is the default pulse strategy. It extends vulnerable isolated current-on pulses by one audio sample without changing UART timing. The original **Fixed 3 + STOP** waveform remains available under **Advanced settings**.
+At 96 kHz, **Extend single pulses + long stop** is the default pulse strategy. It extends vulnerable isolated current-on pulses by one audio sample and uses a four-sample STOP bit on every byte. **Long stop** only uses the four-sample STOP, while **Round down** uses three samples for every bit, including STOP, without pulse extension. Strategies are available under **Advanced settings**.
 
 **Testing** sends notes and other MIDI messages without a DAW. **Panic** (⌘.) stops stuck notes on all channels. Stop and Quit also send Panic. MIDI received while paused is discarded.
 
@@ -36,12 +36,11 @@ At 96 kHz, **Tail stretch** is the default pulse strategy. It extends vulnerable
 Requires an Xcode command-line toolchain with Swift 5.9 or later. No third-party dependencies.
 
 ```sh
-./scripts/build-app.sh arm64
-./scripts/build-app.sh x86_64
+./scripts/build-app.sh
 ./scripts/test.sh
 ```
 
-Apps are written to `dist/<architecture>/AudioJack MIDI.app`; versioned ZIPs go to `website/downloads/`. Both builds target macOS 12. Without an argument, the build script uses the current Mac’s architecture. For development, open `Package.swift` in Xcode or run `swift run AudioJackMIDI`.
+Apps are written to `dist/<architecture>/AudioJack MIDI.app`; versioned ZIPs go to `website/downloads/`. The script builds both architectures targeting macOS 12, then launches the new build for the current Mac and refreshes `website/assets/audiojack-app.png` with a native window screenshot, including rounded corners and transparency. For development, open `Package.swift` in Xcode or run `swift run AudioJackMIDI`.
 
 Automated tests cover MIDI parsing, waveform timing, message pacing, Panic, test playback and CoreMIDI loopback. They do not establish compatibility with a particular physical instrument or replace testing on Monterey and Intel hardware.
 

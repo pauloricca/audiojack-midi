@@ -55,7 +55,7 @@ final class TestPlaybackTests: XCTestCase {
         let decoded: [UInt8] = (0..<expected.count).map { index in
             var byte: UInt8 = 0
             for bit in 0..<8 {
-                let sample = Int((Double(index) * 30.72).rounded()) + (bit + 1) * 3 + 1
+                let sample = index * 31 + (bit + 1) * 3 + 1
                 if left[sample] == 0 { byte |= 1 << bit }
             }
             return byte

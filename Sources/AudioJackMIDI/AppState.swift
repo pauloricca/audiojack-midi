@@ -79,12 +79,25 @@ final class Transport {
 enum PulseStrategy: UInt32, CaseIterable, Identifiable {
     case tail = 0
     case fixed3Stop = 1
+    case none = 2
 
     var id: UInt32 { rawValue }
     var title: String {
         switch self {
-        case .tail: return "Tail stretch"
-        case .fixed3Stop: return "Fixed 3 + STOP"
+        case .tail: return "Extend single pulses + long stop"
+        case .fixed3Stop: return "Long stop"
+        case .none: return "Round down"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .tail:
+            return "At 96 kHz, extends isolated current-on data pulses by one sample and uses a four-sample STOP bit."
+        case .fixed3Stop:
+            return "At 96 kHz, uses three samples for START and data bits and four samples for every STOP bit."
+        case .none:
+            return "At 96 kHz, rounds every bit down to three samples, including STOP, without pulse extension."
         }
     }
 }
@@ -92,15 +105,29 @@ enum PulseStrategy: UInt32, CaseIterable, Identifiable {
 final class AppState: ObservableObject {
     static let calibrationAmplitudeLevels = [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.92, 0.94, 0.96, 0.98, 1.00]
 
+    private enum DefaultsKey {
+        static let deviceName = "settings.deviceName"
+        static let sampleRate = "settings.sampleRate"
+        static let pulseStrategy = "settings.pulseStrategy"
+        static let amplitude = "settings.amplitude"
+        static let reversed = "settings.reversed"
+        static let velocityZero = "settings.velocityZero"
+        static let messageInterval = "settings.messageIntervalMS"
+        static let channel = "settings.channel"
+        static let calibrationStep = "settings.calibrationStep"
+        static let calibrationNote = "settings.calibrationNote"
+    }
+    private let defaults: UserDefaults
+
     @Published var devices: [AudioDevice] = []
-    @Published var selectedDevice: UInt32 = 0 { didSet { refreshOutputVolume() } }
-    @Published var sampleRate = 96000
-    @Published var pulseStrategy: PulseStrategy = .tail { didSet { configure() } }
-    @Published var amplitude = 0.50 { didSet { configure() } }
-    @Published var reversed = true { didSet { configure() } }
-    @Published var velocityZero = false { didSet { configure() } }
-    @Published var messageIntervalMS = 5.0 { didSet { configure() } }
-    @Published var channel = 1
+    @Published var selectedDevice: UInt32 = 0 { didSet { persistSelectedDevice(); refreshOutputVolume() } }
+    @Published var sampleRate = 96000 { didSet { defaults.set(sampleRate, forKey: DefaultsKey.sampleRate) } }
+    @Published var pulseStrategy: PulseStrategy = .tail { didSet { defaults.set(Int(pulseStrategy.rawValue), forKey: DefaultsKey.pulseStrategy); configure() } }
+    @Published var amplitude = 0.50 { didSet { defaults.set(amplitude, forKey: DefaultsKey.amplitude); configure() } }
+    @Published var reversed = true { didSet { defaults.set(reversed, forKey: DefaultsKey.reversed); configure() } }
+    @Published var velocityZero = false { didSet { defaults.set(velocityZero, forKey: DefaultsKey.velocityZero); configure() } }
+    @Published var messageIntervalMS = 5.0 { didSet { defaults.set(messageIntervalMS, forKey: DefaultsKey.messageInterval); configure() } }
+    @Published var channel = 1 { didSet { defaults.set(channel, forKey: DefaultsKey.channel) } }
     @Published var running = false
     @Published var busy = false
     @Published var repeating = false
@@ -113,17 +140,48 @@ final class AppState: ObservableObject {
     @Published var dropped: UInt64 = 0
     @Published var activity = false
     @Published var outputVolume = OutputVolumeStatus(volume: nil, muted: false)
-    @Published var calibrationStep = 1
-    @Published var calibrationNote = 60
-    @Published var calibrationQuestionVisible = false
+    @Published var calibrationStep = 1 { didSet { defaults.set(calibrationStep, forKey: DefaultsKey.calibrationStep) } }
+    @Published var calibrationNote = 60 { didSet { defaults.set(calibrationNote, forKey: DefaultsKey.calibrationNote) } }
+    @Published var calibrationQuestionStep: Int?
     private let transport = Transport()
     private var port: MIDIVirtualPort?
     private var timer: Timer?
     private var polls = 0
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        if defaults.object(forKey: DefaultsKey.sampleRate) != nil {
+            sampleRate = defaults.integer(forKey: DefaultsKey.sampleRate)
+        }
+        if let strategy = PulseStrategy(rawValue: UInt32(defaults.integer(forKey: DefaultsKey.pulseStrategy))) {
+            pulseStrategy = strategy
+        }
+        if defaults.object(forKey: DefaultsKey.amplitude) != nil {
+            amplitude = defaults.double(forKey: DefaultsKey.amplitude)
+        }
+        if defaults.object(forKey: DefaultsKey.reversed) != nil {
+            reversed = defaults.bool(forKey: DefaultsKey.reversed)
+        }
+        if defaults.object(forKey: DefaultsKey.velocityZero) != nil {
+            velocityZero = defaults.bool(forKey: DefaultsKey.velocityZero)
+        }
+        if defaults.object(forKey: DefaultsKey.messageInterval) != nil {
+            messageIntervalMS = defaults.double(forKey: DefaultsKey.messageInterval)
+        }
+        if defaults.object(forKey: DefaultsKey.channel) != nil {
+            channel = min(16, max(1, defaults.integer(forKey: DefaultsKey.channel)))
+        }
+        if defaults.object(forKey: DefaultsKey.calibrationStep) != nil {
+            calibrationStep = min(2, max(1, defaults.integer(forKey: DefaultsKey.calibrationStep)))
+        }
+        if defaults.object(forKey: DefaultsKey.calibrationNote) != nil {
+            calibrationNote = min(127, max(0, defaults.integer(forKey: DefaultsKey.calibrationNote)))
+        }
         refreshDevices()
-        selectedDevice = devices.first(where: { $0.id == AudioOutputEngine.defaultDevice() })?.id ?? devices.first?.id ?? 0
+        let savedDeviceName = defaults.string(forKey: DefaultsKey.deviceName)
+        selectedDevice = devices.first(where: { $0.name == savedDeviceName })?.id
+            ?? devices.first(where: { $0.id == AudioOutputEngine.defaultDevice() })?.id
+            ?? devices.first?.id ?? 0
         do {
             let transport = self.transport
             port = try MIDIVirtualPort { [weak transport] bytes, time in
@@ -132,6 +190,10 @@ final class AppState: ObservableObject {
             portReady = true; append("Virtual destination ready: AudioJack MIDI Out")
         } catch { status = error.localizedDescription; append(status) }
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in self?.poll() }
+    }
+    private func persistSelectedDevice() {
+        guard let name = devices.first(where: { $0.id == selectedDevice })?.name else { return }
+        defaults.set(name, forKey: DefaultsKey.deviceName)
     }
     var supportedRates: [Int] { devices.first(where: { $0.id == selectedDevice })?.rates ?? [] }
     var calibrationAvailable: Bool { !outputVolume.needsAttention }
@@ -221,12 +283,12 @@ final class AppState: ObservableObject {
         }
         append("Test: \(pattern.rawValue), MIDI channel \(channel)")
     }
-    func playCalibrationTest() {
+    func playCalibrationTest(step: Int) {
         guard calibrationAvailable, running, !busy else { return }
         let ch = UInt8(channel - 1)
         let note = UInt8(min(127, max(0, calibrationNote)))
         let events: [TestEvent]
-        if calibrationStep == 1 {
+        if step == 1 {
             events = [
                 TestEvent(delay: 0, bytes: [0x90 | ch, note, 100]),
                 TestEvent(delay: 0.5, bytes: [0x80 | ch, note, 0])
@@ -237,23 +299,23 @@ final class AppState: ObservableObject {
         transport.queue.async { [transport] in
             transport.restartTest(events, repeatDiagnostic: false, channel: ch)
         }
-        calibrationQuestionVisible = true
-        append(calibrationStep == 1 ? "Calibration test note at \(Int(amplitude * 100))%." : "Calibration burst at \(messageIntervalMS) ms spacing.")
+        calibrationQuestionStep = step
+        append(step == 1 ? "Calibration test note at \(Int(amplitude * 100))%." : "Calibration burst at \(messageIntervalMS) ms spacing.")
     }
     func calibrationWorked() {
-        guard calibrationQuestionVisible else { return }
-        calibrationQuestionVisible = false
-        if calibrationStep == 1 { calibrationStep = 2 }
+        guard let step = calibrationQuestionStep else { return }
+        calibrationQuestionStep = nil
+        if step == 1 { calibrationStep = 2 }
     }
     func calibrationFailed() {
-        guard calibrationQuestionVisible else { return }
-        if calibrationStep == 1 {
+        guard let step = calibrationQuestionStep else { return }
+        if step == 1 {
             amplitude = Self.calibrationAmplitudeLevels.first(where: { $0 > amplitude + 0.001 }) ?? 1.0
         } else {
             let gaps = [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.5, 10.0, 15.0, 20.0]
             messageIntervalMS = gaps.first(where: { $0 > messageIntervalMS + 0.001 }) ?? 20.0
         }
-        calibrationQuestionVisible = false
+        calibrationQuestionStep = nil
     }
     func toggleDiagnostic() {
         guard running, !busy else { return }

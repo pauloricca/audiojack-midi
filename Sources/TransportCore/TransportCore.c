@@ -56,7 +56,9 @@ void aj_configure(AJRenderer *r, float amplitude, bool reversed, uint32_t idleBi
     atomic_store(&r->idleBits, idleBits > 4 ? 4 : idleBits);
 }
 void aj_set_pulse_strategy(AJRenderer *r, uint32_t strategy) {
-    atomic_store(&r->pulseStrategy, strategy == AJ_PULSE_FIXED3_STOP ? AJ_PULSE_FIXED3_STOP : AJ_PULSE_TAIL);
+    if (strategy != AJ_PULSE_TAIL && strategy != AJ_PULSE_FIXED3_STOP && strategy != AJ_PULSE_NONE)
+        strategy = AJ_PULSE_TAIL;
+    atomic_store(&r->pulseStrategy, strategy);
 }
 void aj_set_message_interval(AJRenderer *r, double milliseconds) {
     if (!isfinite(milliseconds)) milliseconds = 5;
@@ -80,16 +82,13 @@ static uint32_t bit_samples(AJRenderer *r) {
     r->fraction %= BAUD;
     return n;
 }
-// At 96 kHz each byte starts a fresh fixed-width active-bit clock.
-// Only STOP consumes the fractional byte-duration remainder. Additional idle
-// bits may use the same reservoir, but START/data never read or update it.
+// At 96 kHz, START and data bits are always rounded down to three samples.
+// Round down also uses a three-sample STOP; the two pulse-shaping strategies
+// use a four-sample STOP. Other sample rates retain fractional timing.
 static uint32_t uart_bit_samples(AJRenderer *r) {
     if (r->rate != 96000) return bit_samples(r);
     if (r->bit < 9) return 3;
-    r->fraction += 10 * r->rate;
-    uint32_t byteSamples = r->fraction / BAUD;
-    r->fraction %= BAUD;
-    return byteSamples - 9 * 3; // STOP is 3 or 4 samples; mean 3.72.
+    return atomic_load(&r->pulseStrategy) == AJ_PULSE_NONE ? 3 : 4;
 }
 static bool framed_zero(const AJRenderer *r, uint32_t bit) {
     if (bit == 0) return true; // START
