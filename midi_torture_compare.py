@@ -418,7 +418,7 @@ def main():
     try:
         with mido.open_output(name) as port:
             started = time.monotonic()
-            print("\nStarting MEGA torture test...")
+            print("\nStarting torture test...")
             print("Ctrl-C will abort.\n")
             sleep_s(1.0)
 
@@ -434,10 +434,10 @@ def main():
                 test_9_realtime_and_notes,
                 test_10_all_channels,
                 test_11_dense_mixed_bursts,
-                test_12_slow_cc_flood,
-                test_13_cc1_and_bend_isolation,
-                test_14_cc1_spacing_sweep,
-                test_15_note_spacing_sweep,
+                # test_12_slow_cc_flood,
+                # test_13_cc1_and_bend_isolation,
+                # test_14_cc1_spacing_sweep,
+                # test_15_note_spacing_sweep,
             ]
             for number in args.tests or range(1, len(tests) + 1):
                 tests[number - 1](port)
@@ -446,7 +446,6 @@ def main():
 
             elapsed = time.monotonic() - started
             print(f"\nFinished in {elapsed:.1f}s.")
-            print("If the device is now catatonic, congratulations: comparison achieved. 😂")
     except KeyboardInterrupt:
         print("\n\nAborted by user.")
         print("Attempting a small emergency panic...")

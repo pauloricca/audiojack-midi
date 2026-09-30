@@ -207,6 +207,10 @@ struct ContentView: View {
                 } content: { monitor }
                 Text("Experimental transport. AudioJack MIDI drives a TRS MIDI input from a headphone output and is not electrically compliant with the MIDI specification. Compatibility is not guaranteed.")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Link("Buy me a beer", destination: URL(string: "https://ko-fi.com/pauloricca")!)
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .help("Support AudioJack MIDI on Ko-fi")
             }
             .padding(20)
             .frame(width: 720)
